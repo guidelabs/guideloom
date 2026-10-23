@@ -1,0 +1,13 @@
+GuideLoom
+Copyright (c) 2026, Guide Labs
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full terms.
+
+Portions of guideloom/pytorch/_pin_memory.py are adapted from TorchData and
+PyTorch. Their copyright notices and license terms are provided in
+licenses/torchdata.txt and licenses/pytorch.txt.
+
+guideloom/shuffle/_gfc.py contains adaptations of gfc's Speck key schedule,
+Feistel permutation, domain setup, and cycle walking, together with
+GuideLoom-specific Numba specialization, kernel caching, and bounds checks.
+The gfc copyright notice and license terms are provided in licenses/gfc.txt.

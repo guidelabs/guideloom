@@ -1,0 +1,74 @@
+[project]
+site_name = "GuideLoom"
+site_url = "https://guidelabs.github.io/guideloom/"
+repo_url = "https://github.com/guidelabs/guideloom"
+repo_name = "guidelabs/guideloom"
+edit_uri = "edit/main/docs/"
+site_description = "Stateful dataset storage and a resumable PyTorch DataLoader"
+extra_javascript = ["assets/generated/storage-formats.js"]
+exclude_docs = """
+/components/
+"""
+nav = [
+    { "Overview" = "index.md" },
+    { "Quick-start" = "quick-start.md" },
+    { "Beginner" = [
+        { "Choose a storage format" = "beginner/storage.md" },
+        { "Write a dataset" = "beginner/write-dataset.md" },
+        { "Read into PyTorch" = "beginner/load-batches.md" },
+    ] },
+    { "Intermediate" = [
+        { "Save and resume" = "intermediate/save-resume.md" },
+        { "NumPy structured arrays" = "intermediate/numpy-structured-arrays.md" },
+        { "Documents" = "intermediate/documents.md" },
+        { "Streams" = "intermediate/streams.md" },
+        { "Streams with metadata" = "intermediate/stream-metadata.md" },
+    ] },
+    { "Advanced" = [
+        { "Performance tips" = "advanced/performance.md" },
+        { "The dataset API" = "advanced/dataset-api.md" },
+        { "Asynchronous reads" = "advanced/async-api.md" },
+        { "Custom I/O backends" = "advanced/io-backends.md" },
+        { "Other frameworks (JAX)" = "advanced/other-frameworks.md" },
+    ] },
+    { "Compatibility" = "compatibility.md" },
+    { "API reference" = [
+        { "Overview" = "reference/index.md" },
+        { "Custom storage" = "reference/storage.md" },
+        { "Built-in storage formats" = "reference/formats.md" },
+        { "Built-in I/O backends" = "reference/io.md" },
+        { "Datasets" = "reference/datasets.md" },
+        { "PyTorch DataLoader" = "reference/pytorch.md" },
+        { "Extension interfaces" = "reference/interfaces.md" },
+    ] },
+]
+
+[project.theme]
+features = ["navigation.sections", "navigation.footer", "content.code.copy"]
+logo = "assets/guideloom-mark.svg"
+favicon = "assets/guideloom-mark.svg"
+
+[project.theme.font]
+text = false
+code = false
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["."]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+allow_inspection = false
+show_source = false
+show_signature_annotations = true
+show_root_heading = true
+show_if_no_docstring = true
+members_order = "source"

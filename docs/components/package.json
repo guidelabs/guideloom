@@ -1,0 +1,14 @@
+{
+  "name": "guideloom-docs-components",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node docs.mjs build --strict",
+    "serve": "node docs.mjs serve",
+    "build:assets": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "svelte": "5.57.0"
+  }
+}
