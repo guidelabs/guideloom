@@ -41,18 +41,26 @@ uv run --no-sync twine check --strict /tmp/guideloom-release/*
 
 After merging the release commit, create tag `vVERSION` and publish the
 corresponding GitHub release. The release workflow checks the tag against the
-package version, runs the repository checks, and builds the archives. It uploads
-those archives to TestPyPI, installs the served wheel in a clean environment, and
-runs the test suite against that installation. Dependencies come from PyPI. The
-same archives are published to PyPI only after those tests pass, and the
-documentation is then deployed to GitHub Pages.
+package version, runs lint, type checking, and documentation checks, and builds
+the archives once. It uploads those archives to TestPyPI, then each test job
+creates an environment with uv and installs that exact package version directly
+from TestPyPI. The test suite runs against the installed wheel for each matrix
+entry: Python 3.13 and 3.14 with latest dependencies, and Python 3.13 with
+minimum direct dependencies, including the Torch extra and test tools. Each job
+installs the TestPyPI wheel and its dependencies in one uv command. Dependencies
+come from PyPI; their requirements and minimum versions come from `pyproject.toml`.
+Tests run outside the checkout with isolated Python imports. The same archives
+are published to PyPI only after every matrix entry passes, and the documentation
+is then deployed to
+GitHub Pages. PRs and pushes to `main` continue to test the source checkout with
+the same matrix.
 
 A manual run of the **Release** workflow performs the TestPyPI upload and the
-installation test, and does not publish to PyPI or GitHub Pages. TestPyPI keeps
-every uploaded filename. When the same archives are already present, the upload
-is skipped and the tests still run. When a different build of that version is
-already present, the workflow stops before PyPI; publish a new version instead of
-trying to replace the files.
+installation test matrix, and does not publish to PyPI or GitHub Pages. TestPyPI
+keeps every uploaded filename. When the same archives are already present, the
+upload is skipped and the tests still run. When a different build of that version
+is already present, the workflow stops before PyPI; publish a new version instead
+of trying to replace the files.
 
 Publishing a GitHub prerelease can publish a matching Python prerelease and its
 documentation; choose the version deliberately.

@@ -15,6 +15,9 @@ concurrency:
 jobs:
   checks:
     uses: ./.github/workflows/pr_check.yaml
+    with:
+      skip-pytest: true
+      skip-distribution: true
 
   build:
     needs: checks
@@ -76,22 +79,47 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
 
   test-published:
-    name: Test TestPyPI package
+    name: Test TestPyPI (Python ${{ matrix.python-version }}, ${{ matrix.dependencies }})
     needs: testpypi
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+        dependencies: [latest]
+        include:
+          - python-version: "3.13"
+            dependencies: minimum
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v8
-        with:
-          name: distribution
-          path: dist
       - uses: astral-sh/setup-uv@v10.3.0
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           version: "0.13.1"
           enable-cache: true
-      - name: Install and test the TestPyPI package
-        run: uv run --no-project python scripts/check_testpypi.py test --dist dist
+      - name: Create environment
+        run: uv venv "$RUNNER_TEMP/guideloom-testpypi"
+      - name: Install package and test dependencies
+        env:
+          UV_RESOLUTION: ${{ matrix.dependencies == 'minimum' && 'lowest-direct' || 'highest' }}
+        run: |
+          python="$RUNNER_TEMP/guideloom-testpypi/bin/python"
+          version=$("$python" -I -c 'import runpy; print(runpy.run_path("guideloom/version.py")["__version__"])')
+          # Only GuideLoom comes from TestPyPI; dependencies come from PyPI.
+          for attempt in {1..40}; do
+            if uv pip install --python "$python" --group test -r pyproject.toml --extra torch \
+              --refresh-package guideloom --find-links https://test.pypi.org/simple/guideloom/ \
+              --default-index https://pypi.org/simple/ "guideloom[torch]==$version"; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+      - name: Test installed package
+        run: |
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/guideloom-testpypi/bin/python" -I -m pytest "$GITHUB_WORKSPACE/tests" \
+            -c "$GITHUB_WORKSPACE/pyproject.toml" -q --tb=short
 
   pypi:
     if: github.event_name == 'release'

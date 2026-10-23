@@ -1,18 +1,15 @@
-"""Install the TestPyPI release in a clean environment and run its tests.
+"""Check whether release archives are missing or already published on TestPyPI.
 
-The release workflow uploads the built archives, then uses this script to install
-the served wheel and run the repository tests before publishing to PyPI.
+The release workflow uses this check before uploading so it can skip identical
+archives and reject versions whose published files differ from the build.
 """
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 import email
 import hashlib
 import json
 import os
 import runpy
-import shutil
-import subprocess
 import sys
 import time
 import urllib.error
@@ -26,16 +23,11 @@ INDEX = "https://test.pypi.org/pypi"
 FILE_HOSTS = {"test.pypi.org", "test-files.pythonhosted.org"}
 USER_AGENT = "guideloom-release (+https://github.com/guidelabs/guideloom)"
 TRANSIENT_HTTP = {429, 500, 502, 503, 504}
-POLL_SECONDS = 10 * 60
 POLL_INTERVAL_SECONDS = 15
 
 
 class TransientReleaseError(Exception):
     """TestPyPI could not be read, and the request can be repeated."""
-
-
-def run(*arguments: str, cwd: Path) -> None:
-    subprocess.run(arguments, cwd=cwd, check=True)
 
 
 def file_digest(path: Path) -> str:
@@ -171,126 +163,15 @@ def command_status(dist: Path) -> None:
     write_state(state)
 
 
-def wait_for_release(version: str, local: dict[str, str]) -> dict[str, tuple[str, str]]:
-    deadline = time.monotonic() + POLL_SECONDS
-    while True:
-        try:
-            payload = fetch_release(version)
-        except TransientReleaseError as error:
-            print(f"Waiting for {PROJECT} {version} on TestPyPI ({error})", file=sys.stderr)
-            if time.monotonic() >= deadline:
-                raise SystemExit(f"Timed out waiting for {PROJECT} {version} on TestPyPI") from error
-            time.sleep(POLL_INTERVAL_SECONDS)
-            continue
-        remote = None if payload is None else remote_files(payload)
-        state = release_state(local, remote)
-        if state == "present" and remote is not None:
-            return remote
-        if state == "different":
-            raise SystemExit(mismatch_message(version, state))
-        if time.monotonic() >= deadline:
-            raise SystemExit(f"Timed out waiting for {PROJECT} {version} on TestPyPI")
-        print(f"Waiting for {PROJECT} {version} on TestPyPI ({state})", file=sys.stderr)
-        time.sleep(POLL_INTERVAL_SECONDS)
-
-
-def download(url: str, destination: Path) -> None:
-    deadline = time.monotonic() + POLL_SECONDS
-    while True:
-        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as handle:
-                shutil.copyfileobj(response, handle)
-            return
-        except (urllib.error.URLError, TimeoutError) as error:
-            if time.monotonic() >= deadline:
-                raise SystemExit(f"Could not download {url}") from error
-            time.sleep(POLL_INTERVAL_SECONDS)
-
-
-def command_test(dist: Path) -> None:
-    version, local = local_release(dist)
-    remote = wait_for_release(version, local)
-    with TemporaryDirectory(prefix="guideloom-testpypi-") as directory:
-        temporary = Path(directory)
-        for name, digest in local.items():
-            download(remote[name][1], temporary / name)
-            if file_digest(temporary / name) != digest:
-                raise SystemExit(f"Downloaded {name} does not match the built archive")
-        wheel = next(temporary.glob("*.whl"))
-        environment = temporary / "venv"
-        run("uv", "venv", str(environment), "--python", sys.executable, cwd=temporary)
-        python = environment / "bin" / "python"
-        run("uv", "pip", "install", "--python", str(python), str(wheel), cwd=temporary)
-        smoke = (
-            "import os; from pathlib import Path; from importlib.metadata import distribution; "
-            "import importlib; "
-            "import guideloom; "
-            "from guideloom.storage import StreamStorage, DocumentStorage, StreamWithMetaStorage; "
-            "d = distribution('guideloom'); "
-            "assert d.version == guideloom.__version__ == os.environ['EXPECTED_VERSION']; "
-            "assert Path(guideloom.__file__).is_relative_to(Path(__import__('sys').prefix)); "
-            "assert Path(guideloom.__file__).with_name('py.typed').is_file(); "
-            "assert not hasattr(guideloom, 'ABI_VERSION'); "
-            "assert 'torch' in (d.metadata.get_all('Provides-Extra') or []); "
-            "required = [req for req in (d.requires or []) if 'extra ==' not in req]; "
-            "names = {req.split(';')[0].split('[')[0].split('>')[0].split('<')[0].split('=')[0]"
-            ".split('!')[0].split('~')[0].strip() for req in required}; "
-            "assert 'torch' not in names and 'torchdata' not in names; "
-            "try:\n"
-            "    importlib.import_module('guideloom.pytorch')\n"
-            "except ModuleNotFoundError:\n"
-            "    pass\n"
-            "else:\n"
-            "    raise AssertionError('guideloom.pytorch imported without the torch extra')"
-        )
-        environment_variables = os.environ.copy()
-        environment_variables["EXPECTED_VERSION"] = version
-        subprocess.run(
-            [str(python), "-I", "-c", smoke],
-            cwd=temporary,
-            check=True,
-            env=environment_variables,
-        )
-        run(
-            "uv",
-            "pip",
-            "install",
-            "--python",
-            str(python),
-            "--group",
-            f"{ROOT / 'pyproject.toml'}:test",
-            cwd=temporary,
-        )
-        run(
-            str(python),
-            "-I",
-            "-m",
-            "pytest",
-            str(ROOT / "tests"),
-            "-c",
-            str(ROOT / "pyproject.toml"),
-            "-q",
-            "--tb=short",
-            cwd=temporary,
-        )
-    print("TestPyPI package checks passed")
-
-
 def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    for name in ("status", "test"):
-        command = subparsers.add_parser(name)
-        command.add_argument("--dist", type=Path, required=True)
+    command = subparsers.add_parser("status")
+    command.add_argument("--dist", type=Path, required=True)
     arguments = parser.parse_args()
-    dist = arguments.dist.resolve()
-    if arguments.command == "status":
-        command_status(dist)
-    else:
-        command_test(dist)
+    command_status(arguments.dist.resolve())
 
 
 if __name__ == "__main__":

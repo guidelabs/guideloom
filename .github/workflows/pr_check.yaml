@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
   workflow_call:
+    inputs:
+      skip-pytest:
+        description: Skip source tests when the caller tests a published package
+        type: boolean
+        default: false
+      skip-distribution:
+        description: Skip distribution checks when the caller builds the release artifacts
+        type: boolean
+        default: false
   pull_request:
     branches: [main]
 
@@ -47,6 +56,7 @@ jobs:
         run: uv run --no-sync basedpyright
 
   pytest:
+    if: ${{ !inputs.skip-pytest }}
     name: Test (Python ${{ matrix.python-version }}, ${{ matrix.dependencies }})
     runs-on: ubuntu-latest
     strategy:
@@ -100,6 +110,7 @@ jobs:
         run: uv run --no-sync npm --prefix docs/components run build
 
   distribution:
+    if: ${{ !inputs.skip-distribution }}
     name: Build distributions
     runs-on: ubuntu-latest
     steps:
