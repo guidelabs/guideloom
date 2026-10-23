@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 1.0.0
 
 This is the first public release. Compared to prior internal releases,
 the following changes has been made.
