@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import BinaryIO, final
+from typing import BinaryIO, Final, TypeIs, final, overload
 import os
 import asyncio
 import pathlib
@@ -24,16 +24,51 @@ def _shard_to_filename(shard: int) -> str:
 
 
 @final
-class FileSystemStream:
-    def __init__(self, path: pathlib.PurePath, read_interface: IOReaderAbstract | None = None) -> None:
+class FileSystemStream[PathT: pathlib.PurePath = pathlib.Path]:
+    """Read and write a stream of NumPy arrays in a directory of shard files.
+
+    `path` and `read_interface` are immutable and share `PathT`. Built-in backends require a
+    `pathlib.Path`. A custom backend can require `pathlib.PurePath` or a subclass. When
+    `read_interface` is omitted, `SeekIO` is used and `path` must be a `pathlib.Path`.
+    """
+
+    path: Final[PathT]
+    read_interface: Final[IOReaderAbstract[PathT]]
+
+    @overload
+    def __init__(
+        self: "FileSystemStream[pathlib.Path]",
+        path: pathlib.Path,
+        read_interface: None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__[ReaderPathT: pathlib.PurePath](
+        self: "FileSystemStream[ReaderPathT]",
+        path: ReaderPathT,
+        read_interface: IOReaderAbstract[ReaderPathT],
+    ) -> None: ...
+
+    def __init__[ReaderPathT: pathlib.PurePath](
+        self: "FileSystemStream[ReaderPathT]",
+        path: ReaderPathT,
+        read_interface: IOReaderAbstract[ReaderPathT] | None = None,
+    ) -> None:
         """Read and write a stream of NumPy arrays in a directory of shard files.
 
         Args:
-            path (pathlib.PurePath): Directory that contains the stream shard files.
-            read_interface (IOReaderAbstract | None): Byte-range reader. Defaults to `SeekIO`.
+            path (pathlib.PurePath): Directory that contains the stream shard files. Its type matches
+                `read_interface`. Omitting the reader requires a `pathlib.Path`.
+            read_interface (IOReaderAbstract[pathlib.PurePath] | None): Byte-range reader. Defaults to
+                `SeekIO`.
         """
         self.path = path
-        self.read_interface = SeekIO() if read_interface is None else read_interface
+        if read_interface is None:
+            if not _is_path_stream(self):
+                raise TypeError("path must be a pathlib.Path when read_interface is omitted")
+            self.read_interface = SeekIO()
+        else:
+            self.read_interface = read_interface
 
     def _standarize_dtype[DType: np.generic](self, dtype: np.dtype[DType]) -> np.dtype[DType]:
         return dtype.newbyteorder("<")
@@ -74,10 +109,14 @@ class FileSystemStream:
         return _FileSystemStreamSyncWriter(self.path, self._standarize_dtype(dtype))
 
 
+def _is_path_stream(stream: object) -> TypeIs[FileSystemStream[pathlib.Path]]:
+    return isinstance(stream, FileSystemStream) and isinstance(stream.path, pathlib.Path)
+
+
 @final
 class _FileSystemStreamSyncReader[DType: np.generic](SyncContextManager):
-    def __init__(
-        self, path: pathlib.PurePath, dtype: np.dtype[DType], read_interface: IOReaderAbstract
+    def __init__[PathT: pathlib.PurePath](
+        self, path: PathT, dtype: np.dtype[DType], read_interface: IOReaderAbstract[PathT]
     ) -> None:
         self.path = path
         self.dtype = dtype
@@ -137,8 +176,8 @@ class _FileSystemStreamSyncReader[DType: np.generic](SyncContextManager):
 
 @final
 class _FileSystemStreamAsyncReader[DType: np.generic](AsyncContextManager):
-    def __init__(
-        self, path: pathlib.PurePath, dtype: np.dtype[DType], read_interface: IOReaderAbstract
+    def __init__[PathT: pathlib.PurePath](
+        self, path: PathT, dtype: np.dtype[DType], read_interface: IOReaderAbstract[PathT]
     ) -> None:
         self.path = path
         self.dtype = dtype

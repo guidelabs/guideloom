@@ -106,7 +106,7 @@ def _assert_read_match_dataset(read: OutDocumentData, ref: RandomDatasetInfo, in
 
 @dataclass
 class IOInterface:
-    interface: IOReaderAbstract
+    interface: IOReaderAbstract[pathlib.Path]
     name: str
 
 

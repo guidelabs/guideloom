@@ -15,7 +15,7 @@ from guideloom.types import IOReaderAbstract, StorageBufferTypes, Vector
 class DBIODef:
     name: str
     constructor: Callable[..., FileSystemDocument]
-    read_interface: IOReaderAbstract | None = None
+    read_interface: IOReaderAbstract[pathlib.Path] | None = None
 
     def Create(self, path: pathlib.Path) -> FileSystemDocument:
         if self.read_interface is None:

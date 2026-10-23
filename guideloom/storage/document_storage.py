@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, final
+from typing import Any, cast, final, overload
 import asyncio
 import pathlib
 
@@ -35,22 +35,45 @@ class _DocumentReq:
 
 @final
 class DocumentStorage[InDataT, OutDataT](DocumentStorageAbstract[InDataT, OutDataT]):
+    @overload
     def __init__(
         self,
-        storage_dir: pathlib.PurePath,
+        storage_dir: pathlib.Path,
         storage_format: DocumentStorageFormat[InDataT, OutDataT],
-        read_interface: IOReaderAbstract | None = None,
+        read_interface: None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: DocumentStorageFormat[InDataT, OutDataT],
+        read_interface: IOReaderAbstract[PathT],
+    ) -> None: ...
+
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: DocumentStorageFormat[InDataT, OutDataT],
+        read_interface: IOReaderAbstract[PathT] | None = None,
     ) -> None:
         """Create document storage for a directory of shard files.
 
+        `storage_dir` and `read_interface` share `PathT`. Built-in backends require a `pathlib.Path`.
+        A custom backend can require `pathlib.PurePath` or a subclass. When `read_interface` is
+        omitted, `SeekIO` is used and `storage_dir` must be a `pathlib.Path`.
+
         Args:
-            storage_dir (pathlib.PurePath): Directory that contains the shard files.
+            storage_dir (PathT): Directory that contains the shard files.
             storage_format (DocumentStorageFormat[InDataT, OutDataT]): Encodes and decodes each document.
-            read_interface (IOReaderAbstract | None): Byte-range reader. Defaults to `SeekIO`.
+            read_interface (IOReaderAbstract[PathT] | None): Byte-range reader. Defaults to `SeekIO`.
         """
-        read_interface = SeekIO() if read_interface is None else read_interface
+        if read_interface is None:
+            if not isinstance(storage_dir, pathlib.Path):
+                raise TypeError("storage_dir must be a pathlib.Path when read_interface is omitted")
+            read_interface = cast(IOReaderAbstract[PathT], SeekIO())
+        self._document_io = FileSystemDocument(storage_dir, read_interface)
         self.storage_format = storage_format
-        self._document_io = FileSystemDocument(storage_dir, read_interface=read_interface)
 
     def sync_writer(self) -> "_DocumentStorageSyncWriter[InDataT]":
         """Return a synchronous writer for this storage.
@@ -85,8 +108,8 @@ class DocumentStorage[InDataT, OutDataT](DocumentStorageAbstract[InDataT, OutDat
 
 @final
 class _DocumentStorageSyncWriter[InDataT](DocumentStorageSyncWriterAbstract[InDataT]):
-    def __init__(
-        self, storage_format: DocumentStorageFormat[InDataT, Any], document_io: FileSystemDocument
+    def __init__[PathT: pathlib.PurePath](
+        self, storage_format: DocumentStorageFormat[InDataT, Any], document_io: FileSystemDocument[PathT]
     ) -> None:
         self.storage_format = storage_format
         self.document_writer = document_io.sync_writer()
@@ -176,8 +199,8 @@ class _DocumentStorageShareReader:
 class _DocumentStorageSyncReader[OutDataT](
     _DocumentStorageShareReader, DocumentStorageSyncReaderAbstract[OutDataT]
 ):
-    def __init__(
-        self, storage_format: DocumentStorageFormat[Any, OutDataT], document_io: FileSystemDocument
+    def __init__[PathT: pathlib.PurePath](
+        self, storage_format: DocumentStorageFormat[Any, OutDataT], document_io: FileSystemDocument[PathT]
     ) -> None:
         self.storage_format = storage_format
         self.document_reader = document_io.sync_reader()
@@ -211,8 +234,8 @@ class _DocumentStorageSyncReader[OutDataT](
 class _DocumentStorageAsyncReader[OutDataT](
     _DocumentStorageShareReader, DocumentStorageAsyncReaderAbstract[OutDataT]
 ):
-    def __init__(
-        self, storage_format: DocumentStorageFormat[Any, OutDataT], document_io: FileSystemDocument
+    def __init__[PathT: pathlib.PurePath](
+        self, storage_format: DocumentStorageFormat[Any, OutDataT], document_io: FileSystemDocument[PathT]
     ) -> None:
         self.storage_format = storage_format
         self.document_reader = document_io.async_reader()

@@ -5,7 +5,14 @@ import pathlib
 from .primitive import StorageBufferTypes
 
 
-class IOReaderAbstract(metaclass=ABCMeta):
+class IOReaderAbstract[PathT: pathlib.PurePath = pathlib.PurePath](metaclass=ABCMeta):
+    """Factory for readers of one file.
+
+    `PathT` is the path type passed to each file reader. It defaults to `pathlib.PurePath`. Built-in
+    backends use `pathlib.Path` because they open local files. A custom backend can keep the default
+    or require a `PurePath` subclass.
+    """
+
     @staticmethod
     @abstractmethod
     def is_supported() -> bool:
@@ -17,20 +24,22 @@ class IOReaderAbstract(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def sync_reader(self) -> Callable[[pathlib.PurePath], "IOSyncReaderAbstract"]:
+    def sync_reader(self) -> Callable[[PathT], "IOSyncReaderAbstract"]:
         """Get the constructor for the sync reader.
 
         Returns:
-            Callable[[pathlib.PurePath], IOSyncReaderAbstract]: sync reader constructor.
+            Callable[[PathT], IOSyncReaderAbstract]: Sync reader constructor. Called with a path of
+                type `PathT`.
         """
         ...
 
     @abstractmethod
-    def async_reader(self) -> Callable[[pathlib.PurePath], "IOAsyncReaderAbstract"]:
+    def async_reader(self) -> Callable[[PathT], "IOAsyncReaderAbstract"]:
         """Get the constructor for the async reader.
 
         Returns:
-            Callable[[pathlib.PurePath], IOAsyncReaderAbstract]: async reader constructor.
+            Callable[[PathT], IOAsyncReaderAbstract]: Async reader constructor. Called with a path of
+                type `PathT`.
         """
         ...
 

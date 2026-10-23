@@ -52,7 +52,7 @@ class ConceptStorageFormat(DocumentStorageFormat[InDocumentData, OutDocumentData
 @dataclass
 class IoDef:
     name: str
-    fs_read_interface: IOReaderAbstract | None = None
+    fs_read_interface: IOReaderAbstract[pathlib.Path] | None = None
 
     def create(self, path: pathlib.Path) -> DocumentStorage[InDocumentData, OutDocumentData]:
         formatter = ConceptStorageFormat()

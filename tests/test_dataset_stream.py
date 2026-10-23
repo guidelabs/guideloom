@@ -147,7 +147,7 @@ test_configs = [
 
 @dataclass
 class IOInterface:
-    interface: IOReaderAbstract
+    interface: IOReaderAbstract[pathlib.Path]
     name: str
 
 

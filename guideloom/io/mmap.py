@@ -12,7 +12,7 @@ from ..types import IOAsyncReaderAbstract, IOReaderAbstract, IOSyncReaderAbstrac
 
 
 @final
-class MmapIO(IOReaderAbstract):
+class MmapIO(IOReaderAbstract[pathlib.Path]):
     """Read shard bytes from a read-only memory map.
 
     This backend is supported on every platform. Each read copies the requested range out of the map.
@@ -27,25 +27,25 @@ class MmapIO(IOReaderAbstract):
         """
         return True
 
-    def sync_reader(self) -> Callable[[pathlib.PurePath], "_MmapIOSync"]:
+    def sync_reader(self) -> Callable[[pathlib.Path], "_MmapIOSync"]:
         """Return a constructor for a synchronous reader of one file.
 
         Returns:
-            Callable[[pathlib.PurePath], IOSyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOSyncReaderAbstract]: Called with the file path.
         """
         return _MmapIOSync
 
-    def async_reader(self) -> Callable[[pathlib.PurePath], "_MmapIOAsync"]:
+    def async_reader(self) -> Callable[[pathlib.Path], "_MmapIOAsync"]:
         """Return a constructor for an asynchronous reader of one file.
 
         Returns:
-            Callable[[pathlib.PurePath], IOAsyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOAsyncReaderAbstract]: Called with the file path.
         """
         return _MmapIOAsync
 
 
 class _MmapIOShare:
-    def __init__(self, path: pathlib.PurePath) -> None:
+    def __init__(self, path: pathlib.Path) -> None:
         self._fd: io.FileIO | None = None
         self._mmap: mmap.mmap | bytes | None = None
         self._size: int | None = None

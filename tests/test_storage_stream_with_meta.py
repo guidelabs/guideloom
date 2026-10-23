@@ -84,7 +84,7 @@ class ConceptStorageFormat[DataDType: np.generic](
 @dataclass
 class IoDef:
     name: str
-    fs_read_interface: IOReaderAbstract | None = None
+    fs_read_interface: IOReaderAbstract[pathlib.Path] | None = None
 
     def create[DType: np.generic](
         self, path: pathlib.Path, stream_dtype: np.dtype[DType]

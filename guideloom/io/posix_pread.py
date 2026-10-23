@@ -13,7 +13,7 @@ _HAS_FADVICE = hasattr(os, "posix_fadvise") and hasattr(os, "POSIX_FADV_RANDOM")
 
 
 @final
-class PosixPreadIO(IOReaderAbstract):
+class PosixPreadIO(IOReaderAbstract[pathlib.Path]):
     """Read shard bytes with `os.preadv`.
 
     Available on POSIX platforms that provide `os.preadv`.
@@ -52,39 +52,39 @@ class PosixPreadIO(IOReaderAbstract):
             return False
         return not (advice and not _HAS_FADVICE)
 
-    def sync_reader(self) -> Callable[[pathlib.PurePath], "_PosixPreadIOSync"]:
+    def sync_reader(self) -> Callable[[pathlib.Path], "_PosixPreadIOSync"]:
         """Return a constructor for a synchronous reader of one file.
 
         The constructor receives the `advice` setting from this backend.
 
         Returns:
-            Callable[[pathlib.PurePath], IOSyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOSyncReaderAbstract]: Called with the file path.
         """
         advice = self.advice
 
-        def make(path: pathlib.PurePath) -> _PosixPreadIOSync:
+        def make(path: pathlib.Path) -> _PosixPreadIOSync:
             return _PosixPreadIOSync(path, advice=advice)
 
         return make
 
-    def async_reader(self) -> Callable[[pathlib.PurePath], "_PosixPreadIOAsync"]:
+    def async_reader(self) -> Callable[[pathlib.Path], "_PosixPreadIOAsync"]:
         """Return a constructor for an asynchronous reader of one file.
 
         The constructor receives the `advice` setting from this backend.
 
         Returns:
-            Callable[[pathlib.PurePath], IOAsyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOAsyncReaderAbstract]: Called with the file path.
         """
         advice = self.advice
 
-        def make(path: pathlib.PurePath) -> _PosixPreadIOAsync:
+        def make(path: pathlib.Path) -> _PosixPreadIOAsync:
             return _PosixPreadIOAsync(path, advice=advice)
 
         return make
 
 
 class _PosixPreadIOShare:
-    def __init__(self, path: pathlib.PurePath, *, advice: bool = False) -> None:
+    def __init__(self, path: pathlib.Path, *, advice: bool = False) -> None:
         self._path = path
         self._advice = advice
         self._fd: int | None = None
