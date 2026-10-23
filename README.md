@@ -33,13 +33,13 @@ for encoding and I/O tuning, and
 [save and resume](https://guidelabs.github.io/guideloom/intermediate/save-resume/)
 for checkpointing examples and the settings needed to preserve sample order.
 
-Requires Python 3.13, 3.14, or 3.15. See the
+Requires Python 3.13 or 3.14. See the
 [compatibility policy](https://guidelabs.github.io/guideloom/compatibility/).
 
 ## Install
 
 ```sh
-uv venv --python 3.15
+uv venv --python 3.13
 uv pip install "guideloom[torch]"
 ```
 

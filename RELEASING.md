@@ -27,7 +27,7 @@ See [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) and
    and document migrations when crossing a breaking boundary.
 3. Update `CHANGELOG.md`, replacing the unreleased label with the release date.
    Verify the quick-start and any changed guide examples.
-4. Run the checks in `CONTRIBUTING.md`. CI covers Python 3.13, 3.14, and 3.15 and
+4. Run the checks in `CONTRIBUTING.md`. CI covers Python 3.13 and 3.14 and
    minimum dependencies.
 
 Build into an empty output directory to avoid accidentally uploading older files:

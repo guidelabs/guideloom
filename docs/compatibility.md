@@ -37,7 +37,7 @@ tensor values; see [save and resume](intermediate/save-resume.md#preserve-sample
 
 ## Supported environments
 
-CPython 3.13–3.15 is supported with the dependency versions allowed by
+CPython 3.13–3.14 is supported with the dependency versions allowed by
 `pyproject.toml`, including the `torch` extra. Free-threaded Python is unsupported.
 CUDA requires a compatible PyTorch/CUDA installation; CPU CI does not validate GPU behavior.
 
