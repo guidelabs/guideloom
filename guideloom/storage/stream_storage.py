@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from typing import Any, final
+from typing import Any, cast, final, overload
 import asyncio
 import pathlib
 
@@ -21,23 +21,46 @@ from ._compute_requests import compute_stream_requests, concat_fast
 
 @final
 class StreamStorage[InDataT, OutDataT, StreamDType: np.generic](StreamStorageAbstract[InDataT, OutDataT]):
+    @overload
     def __init__(
         self,
-        storage_dir: pathlib.PurePath,
+        storage_dir: pathlib.Path,
         storage_format: StreamStorageFormat[InDataT, OutDataT, StreamDType],
-        read_interface: IOReaderAbstract | None = None,
+        read_interface: None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: StreamStorageFormat[InDataT, OutDataT, StreamDType],
+        read_interface: IOReaderAbstract[PathT],
+    ) -> None: ...
+
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: StreamStorageFormat[InDataT, OutDataT, StreamDType],
+        read_interface: IOReaderAbstract[PathT] | None = None,
     ) -> None:
         """Create stream storage for a directory of shard files.
 
+        `storage_dir` and `read_interface` share `PathT`. Built-in backends require a `pathlib.Path`.
+        A custom backend can require `pathlib.PurePath` or a subclass. When `read_interface` is
+        omitted, `SeekIO` is used and `storage_dir` must be a `pathlib.Path`.
+
         Args:
-            storage_dir (pathlib.PurePath): Directory that contains the shard files.
+            storage_dir (PathT): Directory that contains the shard files.
             storage_format (StreamStorageFormat[InDataT, OutDataT, StreamDType]): Encodes and decodes
                 each stream record.
-            read_interface (IOReaderAbstract | None): Byte-range reader. Defaults to `SeekIO`.
+            read_interface (IOReaderAbstract[PathT] | None): Byte-range reader. Defaults to `SeekIO`.
         """
-        read_interface = SeekIO() if read_interface is None else read_interface
+        if read_interface is None:
+            if not isinstance(storage_dir, pathlib.Path):
+                raise TypeError("storage_dir must be a pathlib.Path when read_interface is omitted")
+            read_interface = cast(IOReaderAbstract[PathT], SeekIO())
+        self._stream_io = FileSystemStream(storage_dir, read_interface)
         self.storage_format = storage_format
-        self._stream_io = FileSystemStream(storage_dir, read_interface=read_interface)
 
     def sync_writer(self) -> "_StreamStorageSyncWriter[InDataT, StreamDType]":
         """Return a synchronous writer for this storage.
@@ -72,8 +95,10 @@ class StreamStorage[InDataT, OutDataT, StreamDType: np.generic](StreamStorageAbs
 
 @final
 class _StreamStorageSyncWriter[InDataT, StreamDType: np.generic](StreamStorageSyncWriterAbstract[InDataT]):
-    def __init__(
-        self, storage_format: StreamStorageFormat[InDataT, Any, StreamDType], stream_io: FileSystemStream
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_format: StreamStorageFormat[InDataT, Any, StreamDType],
+        stream_io: FileSystemStream[PathT],
     ) -> None:
         self.storage_format = storage_format
         self.stream_writer = stream_io.sync_writer(storage_format.stream_dtype)
@@ -142,8 +167,10 @@ class _StreamStorageShareReader[OutDataT, StreamDType: np.generic]:
 class _StreamStorageSyncReader[OutDataT, StreamDType: np.generic](
     _StreamStorageShareReader[OutDataT, StreamDType], StreamStorageSyncReaderAbstract[OutDataT]
 ):
-    def __init__(
-        self, storage_format: StreamStorageFormat[Any, OutDataT, StreamDType], stream_io: FileSystemStream
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_format: StreamStorageFormat[Any, OutDataT, StreamDType],
+        stream_io: FileSystemStream[PathT],
     ) -> None:
         self.storage_format = storage_format
         self.stream_reader = stream_io.sync_reader(storage_format.stream_dtype)
@@ -179,8 +206,10 @@ class _StreamStorageSyncReader[OutDataT, StreamDType: np.generic](
 class _StreamStorageAsyncReader[OutDataT, StreamDType: np.generic](
     _StreamStorageShareReader[OutDataT, StreamDType], StreamStorageAsyncReaderAbstract[OutDataT]
 ):
-    def __init__(
-        self, storage_format: StreamStorageFormat[Any, OutDataT, StreamDType], stream_io: FileSystemStream
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_format: StreamStorageFormat[Any, OutDataT, StreamDType],
+        stream_io: FileSystemStream[PathT],
     ) -> None:
         self.storage_format = storage_format
         self.stream_reader = stream_io.async_reader(storage_format.stream_dtype)

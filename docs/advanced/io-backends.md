@@ -26,6 +26,7 @@ with TemporaryDirectory() as directory:
 
 Subclass `IOReaderAbstract`. Implement `is_supported`, `sync_reader`, and
 `async_reader`. The latter two return reader constructors that accept a file path.
+The type parameter is that path type. `DocumentStorage`, `StreamStorage`, `StreamWithMetaStorage`, `FileSystemDocument`, and `FileSystemStream` then require their directory argument to be that same type.
 
 | Reader | Required operations |
 | --- | --- |
@@ -58,6 +59,7 @@ raises `FileNotFoundError`, which shard discovery uses to stop. Writing stays
 on the filesystem at that path.
 
 ```python title="http_io.py"
+from collections.abc import Callable
 from functools import partial
 from pathlib import PurePath
 from typing import NoReturn, final
@@ -68,7 +70,7 @@ from guideloom.types import IOAsyncReaderAbstract, IOReaderAbstract
 
 
 @final
-class HttpIO(IOReaderAbstract):
+class HttpIO(IOReaderAbstract[PurePath]):
     def __init__(self, session: aiohttp.ClientSession) -> None:
         self._session = session
         super().__init__()
@@ -80,7 +82,7 @@ class HttpIO(IOReaderAbstract):
     def sync_reader(self) -> NoReturn:
         raise ValueError("sync reader is not supported")
 
-    def async_reader(self):
+    def async_reader(self) -> Callable[[PurePath], "_HttpIOAsync"]:
         return partial(_HttpIOAsync, session=self._session)
 
 
@@ -148,7 +150,7 @@ the assertion:
 
 ```python title="read_http.py"
 import asyncio
-from pathlib import Path
+from pathlib import PurePath
 
 import aiohttp
 
@@ -159,7 +161,7 @@ from guideloom import DocumentPickleFormat, DocumentStorage
 async def main() -> None:
     async with aiohttp.ClientSession(base_url="https://example.com/data/") as session:
         storage = DocumentStorage(
-            Path("datasets/example"),
+            PurePath("datasets/example"),
             DocumentPickleFormat(),
             read_interface=HttpIO(session),
         )

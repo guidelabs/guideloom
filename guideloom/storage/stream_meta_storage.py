@@ -1,5 +1,5 @@
 from collections.abc import Generator, Hashable, Iterator, Sequence
-from typing import Any, final
+from typing import Any, cast, final, overload
 import asyncio
 import pathlib
 
@@ -39,26 +39,48 @@ class _CaptureGeneratorReturn[T, R]:
 class StreamWithMetaStorage[InDataT, OutDataT, StreamDType: np.generic](
     StreamStorageAbstract[InDataT, OutDataT]
 ):
+    @overload
     def __init__(
         self,
-        storage_dir: pathlib.PurePath,
+        storage_dir: pathlib.Path,
         storage_format: StreamWithMetaStorageFormat[InDataT, OutDataT, StreamDType],
-        read_interface: IOReaderAbstract | None = None,
+        read_interface: None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: StreamWithMetaStorageFormat[InDataT, OutDataT, StreamDType],
+        read_interface: IOReaderAbstract[PathT],
+    ) -> None: ...
+
+    def __init__[PathT: pathlib.PurePath](
+        self,
+        storage_dir: PathT,
+        storage_format: StreamWithMetaStorageFormat[InDataT, OutDataT, StreamDType],
+        read_interface: IOReaderAbstract[PathT] | None = None,
     ) -> None:
         """Create stream-with-metadata storage for a directory of shard files.
 
         Stream elements and their metadata payloads are both stored under `storage_dir`.
+        `storage_dir` and `read_interface` share `PathT`. Built-in backends require a `pathlib.Path`.
+        A custom backend can require `pathlib.PurePath` or a subclass. When `read_interface` is
+        omitted, `SeekIO` is used and `storage_dir` must be a `pathlib.Path`.
 
         Args:
-            storage_dir (pathlib.PurePath): Directory that contains the shard files.
+            storage_dir (PathT): Directory that contains the shard files.
             storage_format (StreamWithMetaStorageFormat[InDataT, OutDataT, StreamDType]): Encodes and
                 decodes each record.
-            read_interface (IOReaderAbstract | None): Byte-range reader. Defaults to `SeekIO`.
+            read_interface (IOReaderAbstract[PathT] | None): Byte-range reader. Defaults to `SeekIO`.
         """
-        read_interface = SeekIO() if read_interface is None else read_interface
+        if read_interface is None:
+            if not isinstance(storage_dir, pathlib.Path):
+                raise TypeError("storage_dir must be a pathlib.Path when read_interface is omitted")
+            read_interface = cast(IOReaderAbstract[PathT], SeekIO())
+        self._stream_io = FileSystemStream(storage_dir, read_interface)
+        self._document_io = FileSystemDocument(storage_dir, read_interface)
         self.storage_format = storage_format
-        self._stream_io = FileSystemStream(storage_dir, read_interface=read_interface)
-        self._document_io = FileSystemDocument(storage_dir, read_interface=read_interface)
 
         self._stream_dtype = np.dtype([("index", np.int32), ("user", storage_format.stream_dtype)])
 
@@ -103,12 +125,12 @@ class StreamWithMetaStorage[InDataT, OutDataT, StreamDType: np.generic](
 class _StreamWithMetaStorageSyncWriter[InDataT, StreamDType: np.generic](
     StreamStorageSyncWriterAbstract[InDataT]
 ):
-    def __init__(
+    def __init__[PathT: pathlib.PurePath](
         self,
         storage_format: StreamWithMetaStorageFormat[InDataT, Any, StreamDType],
-        stream_io: FileSystemStream,
+        stream_io: FileSystemStream[PathT],
         stream_dtype: np.dtype[np.void],
-        document_io: FileSystemDocument,
+        document_io: FileSystemDocument[PathT],
     ) -> None:
         self.storage_format = storage_format
         self.stream_dtype = stream_dtype
@@ -226,12 +248,12 @@ class _StreamWithMetaStorageShareReader[OutDataT, StreamDType: np.generic]:
 class _StreamWithMetaStorageSyncReader[OutDataT, StreamDType: np.generic](
     _StreamWithMetaStorageShareReader[OutDataT, StreamDType], StreamStorageSyncReaderAbstract[OutDataT]
 ):
-    def __init__(
+    def __init__[PathT: pathlib.PurePath](
         self,
         storage_format: StreamWithMetaStorageFormat[Any, OutDataT, StreamDType],
-        stream_io: FileSystemStream,
+        stream_io: FileSystemStream[PathT],
         stream_dtype: np.dtype[np.void],
-        document_io: FileSystemDocument,
+        document_io: FileSystemDocument[PathT],
     ) -> None:
         self.stream_dtype = stream_dtype
         self.stream_reader = stream_io.sync_reader(stream_dtype)
@@ -283,12 +305,12 @@ class _StreamWithMetaStorageSyncReader[OutDataT, StreamDType: np.generic](
 class _StreamWithMetaStorageAsyncReader[OutDataT, StreamDType: np.generic](
     _StreamWithMetaStorageShareReader[OutDataT, StreamDType], StreamStorageAsyncReaderAbstract[OutDataT]
 ):
-    def __init__(
+    def __init__[PathT: pathlib.PurePath](
         self,
         storage_format: StreamWithMetaStorageFormat[Any, OutDataT, StreamDType],
-        stream_io: FileSystemStream,
+        stream_io: FileSystemStream[PathT],
         stream_dtype: np.dtype[np.void],
-        document_io: FileSystemDocument,
+        document_io: FileSystemDocument[PathT],
     ) -> None:
         self.stream_dtype = stream_dtype
         self.stream_reader = stream_io.async_reader(stream_dtype)

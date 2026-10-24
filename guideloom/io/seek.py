@@ -10,7 +10,7 @@ from ..types import IOAsyncReaderAbstract, IOReaderAbstract, IOSyncReaderAbstrac
 
 
 @final
-class SeekIO(IOReaderAbstract):
+class SeekIO(IOReaderAbstract[pathlib.Path]):
     """Read shard bytes by seeking within the file for each read.
 
     This backend is supported on every platform. Storage uses it when `read_interface` is omitted.
@@ -25,25 +25,25 @@ class SeekIO(IOReaderAbstract):
         """
         return True
 
-    def sync_reader(self) -> Callable[[pathlib.PurePath], "_SeekIOSync"]:
+    def sync_reader(self) -> Callable[[pathlib.Path], "_SeekIOSync"]:
         """Return a constructor for a synchronous reader of one file.
 
         Returns:
-            Callable[[pathlib.PurePath], IOSyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOSyncReaderAbstract]: Called with the file path.
         """
         return _SeekIOSync
 
-    def async_reader(self) -> Callable[[pathlib.PurePath], "_SeekIOAsync"]:
+    def async_reader(self) -> Callable[[pathlib.Path], "_SeekIOAsync"]:
         """Return a constructor for an asynchronous reader of one file.
 
         Returns:
-            Callable[[pathlib.PurePath], IOAsyncReaderAbstract]: Called with the file path.
+            Callable[[pathlib.Path], IOAsyncReaderAbstract]: Called with the file path.
         """
         return _SeekIOAsync
 
 
 class _SeekIOShare:
-    def __init__(self, path: pathlib.PurePath) -> None:
+    def __init__(self, path: pathlib.Path) -> None:
         self._path = path
 
 

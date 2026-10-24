@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+Improvements to the type defintions for the paths. Mostly helpful when implementing
+custom IO backends that takes special PurePath types.
+
+- `IOReaderAbstract` is generic over its path type (`PathT: pathlib.PurePath = pathlib.PurePath`),
+  and that path type propagates to `DocumentStorage`, `StreamStorage`, `StreamWithMetaStorage`,
+  `FileSystemDocument`, and `FileSystemStream`.
+- `SeekIO`, `MmapIO`, and `PosixPreadIO` require `pathlib.Path`, as does omitting `read_interface`.
+
 ## 1.0.0
 
 This is the first public release. Compared to prior internal releases,

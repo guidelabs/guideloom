@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import BinaryIO, final
+from typing import BinaryIO, Final, TypeIs, final, overload
 import os
 import asyncio
 import pathlib
@@ -41,16 +41,51 @@ def _shard_to_data_filename(shard: int) -> str:
 
 
 @final
-class FileSystemDocument:
-    def __init__(self, path: pathlib.PurePath, read_interface: IOReaderAbstract | None = None) -> None:
+class FileSystemDocument[PathT: pathlib.PurePath = pathlib.Path]:
+    """Writes and reads document data.
+
+    `path` and `read_interface` are immutable and share `PathT`. Built-in backends require a
+    `pathlib.Path`. A custom backend can require `pathlib.PurePath` or a subclass. When
+    `read_interface` is omitted, `SeekIO` is used and `path` must be a `pathlib.Path`.
+    """
+
+    path: Final[PathT]
+    read_interface: Final[IOReaderAbstract[PathT]]
+
+    @overload
+    def __init__(
+        self: "FileSystemDocument[pathlib.Path]",
+        path: pathlib.Path,
+        read_interface: None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__[ReaderPathT: pathlib.PurePath](
+        self: "FileSystemDocument[ReaderPathT]",
+        path: ReaderPathT,
+        read_interface: IOReaderAbstract[ReaderPathT],
+    ) -> None: ...
+
+    def __init__[ReaderPathT: pathlib.PurePath](
+        self: "FileSystemDocument[ReaderPathT]",
+        path: ReaderPathT,
+        read_interface: IOReaderAbstract[ReaderPathT] | None = None,
+    ) -> None:
         """Writes and reads document data.
 
         Args:
-            path (pathlib.PurePath): Directory that contains the document shard files.
-            read_interface (IOReaderAbstract | None): Byte-range reader. Defaults to `SeekIO`.
+            path (pathlib.PurePath): Directory that contains the document shard files. Its type matches
+                `read_interface`. Omitting the reader requires a `pathlib.Path`.
+            read_interface (IOReaderAbstract[pathlib.PurePath] | None): Byte-range reader. Defaults to
+                `SeekIO`.
         """
         self.path = path
-        self.read_interface = SeekIO() if read_interface is None else read_interface
+        if read_interface is None:
+            if not _is_path_document(self):
+                raise TypeError("path must be a pathlib.Path when read_interface is omitted")
+            self.read_interface = SeekIO()
+        else:
+            self.read_interface = read_interface
 
     def sync_reader(self) -> "_FileSystemDocumentSyncReader":
         """Returns a file reader.
@@ -75,6 +110,10 @@ class FileSystemDocument:
             _FileSystemDocumentSyncWriter: Writer object to synchronously append data.
         """
         return _FileSystemDocumentSyncWriter(self.path)
+
+
+def _is_path_document(document: object) -> TypeIs[FileSystemDocument[pathlib.Path]]:
+    return isinstance(document, FileSystemDocument) and isinstance(document.path, pathlib.Path)
 
 
 @dataclass(slots=True, eq=False)
@@ -114,7 +153,7 @@ def _unpack_data(unpack_info: Vector[np.void], datas: Sequence[StorageBufferType
 
 @final
 class _FileSystemDocumentSyncReader(SyncContextManager):
-    def __init__(self, path: pathlib.PurePath, read_interface: IOReaderAbstract) -> None:
+    def __init__[PathT: pathlib.PurePath](self, path: PathT, read_interface: IOReaderAbstract[PathT]) -> None:
         self.path = path
         self.index_dtype = index_data_dtype
         self.index_dtype_bytes = index_data_dtype.itemsize
@@ -208,7 +247,7 @@ class _FileSystemDocumentSyncReader(SyncContextManager):
 
 @final
 class _FileSystemDocumentAsyncReader(AsyncContextManager):
-    def __init__(self, path: pathlib.PurePath, read_interface: IOReaderAbstract) -> None:
+    def __init__[PathT: pathlib.PurePath](self, path: PathT, read_interface: IOReaderAbstract[PathT]) -> None:
         self.path = path
         self.index_dtype = index_data_dtype
         self.index_dtype_bytes = self.index_dtype.itemsize

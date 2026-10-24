@@ -11,7 +11,7 @@ from guideloom.types import IOReaderAbstract
 
 @dataclass
 class IOInterface:
-    interface: IOReaderAbstract | None
+    interface: IOReaderAbstract[pathlib.Path] | None
     name: str
 
 

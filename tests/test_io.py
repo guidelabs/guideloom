@@ -56,7 +56,7 @@ class IOExpectation:
 
 @dataclass
 class IOInterface:
-    interface: IOReaderAbstract
+    interface: IOReaderAbstract[pathlib.Path]
     name: str
 
 
