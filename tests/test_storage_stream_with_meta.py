@@ -853,3 +853,25 @@ async def test_non_sequentally_unique_keys_async(
                     "stream_data": np.array([10, 20, 30, 40, 50, 60, 70], dtype=np.int64),
                 },
             )
+
+
+@pytest.mark.parametrize("io_def", io_interfaces, ids=lambda metal: metal.name)
+def test_pack_yields_fewer_pairs_than_size_sync(tmp_path: pathlib.Path, io_def: IoDef) -> None:
+    # `size` is the stream length (4), but `pack` yields one pair per `document_id` entry (2).
+    # The append is accepted, and the last two stream elements are written with uninitialized
+    # metadata indexes.
+    storage = io_def.create(
+        tmp_path / "test_pack_yields_fewer_pairs_than_size_sync", stream_dtype=np.dtype(np.int64)
+    )
+
+    with storage.sync_writer() as writer:
+        with pytest.raises(ValueError, match="size"):
+            writer.append(
+                0,
+                {
+                    "doc_id": 1,
+                    "document_data": [10],
+                    "document_id": np.array([0, 0], dtype=np.int32),
+                    "stream_data": np.array([10, 20, 30, 40], dtype=np.int64),
+                },
+            )
