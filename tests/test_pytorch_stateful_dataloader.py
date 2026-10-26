@@ -2,7 +2,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, replace
 from itertools import zip_longest
 from pathlib import Path
-from typing import NoReturn, overload
+from typing import NamedTuple, NoReturn, overload
 
 import numpy as np
 import torch
@@ -208,6 +208,27 @@ def test_dataloader_move_device(cpu_device: torch.device) -> None:
         for obs in observations:
             assert obs.device == move_device
         assert observations == dataset[:]
+
+
+class _Batch(NamedTuple):
+    tokens: torch.Tensor
+    mask: torch.Tensor
+
+
+def test_dataloader_move_device_namedtuple() -> None:
+    # Moving a batch to the device rebuilds each tuple with `type(data)(generator)`, which a
+    # namedtuple does not accept. The "meta" device runs that path without an accelerator.
+    dataset = MockDataset(lambda i: i, length=4)
+    with StatefulDataLoader(
+        dataset,
+        collate_fn=lambda x: _Batch(torch.tensor(x), torch.tensor(x)),
+        local_batch_size=2,
+        device=torch.device("meta"),
+    ) as dataloader:
+        batches = list(dataloader)
+
+    assert [type(batch) for batch in batches] == [_Batch, _Batch]
+    assert all(batch.tokens.device.type == "meta" for batch in batches)
 
 
 def test_use_non_blocking_transfer_only_for_cuda() -> None:
