@@ -2,18 +2,22 @@
 
 ## Unreleased
 
-<<<<<<< HEAD
 - `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True` and raises `ValueError`
   otherwise. Previously, with the default `shuffle_seed=None`, each rank drew its own
   permutation, so ranks read overlapping samples and skipped others. Pass the same integer seed
   on every rank.
 - The `load_state_dict` warning for a mismatched `shuffle_seed` now shows the loader's seed
   instead of its `shuffle` flag.
-=======
 - `StatefulDataLoader` moves batches containing namedtuples to a non-CPU device. Previously this
   raised `TypeError`, or, for a namedtuple whose other fields have defaults, put a generator in its
   first field instead of the moved tensor.
->>>>>>> 80bbf53 (fix: move namedtuple batches to the device)
+- `StreamWithMetaStorage` writers check what `pack` produces, as the plain stream writer already
+  does. They raise `ValueError` when `pack` yields a different number of pairs than `size(data)`,
+  or returns an array without `size(data)` elements or with a dtype other than `stream_dtype`
+  (byte order may differ), and `TypeError` when it returns something that is not a NumPy array,
+  such as `None` from a missing `return`. Previously, too few pairs wrote uninitialized metadata
+  indexes, and other return values were silently cast or broadcast. Return
+  `np.asarray(stream, dtype=self.stream_dtype)` from `pack` if needed.
 
 ## 1.1.0
 

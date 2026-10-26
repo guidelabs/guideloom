@@ -19,10 +19,15 @@ from ..types import (
 from ._compute_requests import compute_document_requests_and_index, compute_stream_requests, concat_fast
 
 
+class _GeneratorNotDone:
+    pass
+
+
 class _CaptureGeneratorReturn[T, R]:
     def __init__(self, gen_func: Generator[T, None, R]) -> None:
         self._gen = gen_func
-        self._return_val: R | None = None
+        # A sentinel rather than None, because a generator without a `return` statement returns None.
+        self._return_val: R | _GeneratorNotDone = _GeneratorNotDone()
 
     def __iter__(self) -> Iterator[T]:
         self._return_val = yield from self._gen
@@ -30,9 +35,9 @@ class _CaptureGeneratorReturn[T, R]:
 
     @property
     def return_value(self) -> R:
-        if self._return_val is None:
-            raise RuntimeError("Generator not fully consumed yet")
-        return self._return_val
+        if not isinstance(self._return_val, _GeneratorNotDone):
+            return self._return_val
+        raise RuntimeError("Generator not fully consumed yet")
 
 
 @final
@@ -157,7 +162,11 @@ class _StreamWithMetaStorageSyncWriter[InDataT, StreamDType: np.generic](
 
         document_last_key: Hashable = object()
         seen_keys: set[Hashable] = set()
+        num_pairs = 0
         for stream_index, (document_key, document_value) in enumerate(packing):
+            if stream_index >= num_items:
+                raise ValueError(f"pack must yield size(data) = {num_items} pairs, but yielded more")
+
             if document_last_key != document_key:
                 if document_key in seen_keys:
                     raise ValueError(
@@ -180,8 +189,26 @@ class _StreamWithMetaStorageSyncWriter[InDataT, StreamDType: np.generic](
                     raise ValueError(f"too many unique metadata objects in shard {shard}use less than 2**31")
 
             stream_packed["index"][stream_index] = self._curr_document_global_index[shard]
+            num_pairs = stream_index + 1
 
-        stream_packed["user"] = packing.return_value
+        # Payloads written above stay unreferenced if this append is rejected.
+        if num_pairs != num_items:
+            raise ValueError(f"pack must yield size(data) = {num_items} pairs, but yielded {num_pairs}")
+
+        stream_data = packing.return_value
+        if not isinstance(stream_data, np.ndarray):
+            raise TypeError(f"pack must return a numpy array, got {type(stream_data).__name__}")
+        if stream_data.shape != (num_items,):
+            raise ValueError(
+                f"pack must return a 1-D array of size(data) = {num_items} elements,"
+                f" got shape {stream_data.shape}"
+            )
+        # Assignment below converts byte order, so only the byte order may differ.
+        expected_dtype = self.storage_format.stream_dtype
+        if stream_data.dtype.newbyteorder("<") != expected_dtype.newbyteorder("<"):
+            raise ValueError(f"pack returned dtype {stream_data.dtype}, but stream_dtype is {expected_dtype}")
+
+        stream_packed["user"] = stream_data
         self.stream_writer.append(shard, stream_packed)
         self._items_written[shard] = self._items_written.get(shard, 0) + num_items
 
