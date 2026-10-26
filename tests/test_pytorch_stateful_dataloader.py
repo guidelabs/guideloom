@@ -452,6 +452,26 @@ def test_dataloader_distributed_shuffle(
             ]
 
 
+def test_dataloader_distributed_shuffle_without_seed(cpu_device: torch.device) -> None:
+    # Ranks do not communicate, so each rank must derive the same permutation. With the default
+    # shuffle_seed=None, each rank draws its own entropy, so ranks overlap and samples are skipped.
+    dataset = MockDataset(lambda i: i, length=100)
+    observed: list[int] = []
+    for rank in range(2):
+        with StatefulDataLoader(
+            dataset,
+            collate_fn=lambda x: x,
+            local_batch_size=1,
+            world_size=2,
+            rank=rank,
+            shuffle=True,
+            device=cpu_device,
+        ) as dataloader:
+            observed.extend(sample for batch in dataloader for sample in batch)
+
+    assert sorted(observed) == list(range(len(dataset)))
+
+
 @pytest.mark.parametrize("dist_config", DistConfig.all_configs(8, 4), ids=lambda x: x.name)
 @pytest.mark.parametrize("drop_last", DropLast.all_configs(), ids=lambda x: x.name)
 def test_dataloader_distributed_batch_size(
