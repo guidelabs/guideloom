@@ -164,8 +164,8 @@ class StatefulDataLoader[SourceT: object, BatchT: object](Iterable[BatchT], Size
             concurrently.
         parallel_method ('thread', 'process'): How `collate_fn` is parallelized. Defaults to thread.
         shuffle (bool): Whether to shuffle sample indexes. Defaults to False.
-        shuffle_seed (int | None): Seed for shuffling. `None` makes shuffling nondeterministic.
-            Defaults to None. Ignored when `shuffle` is False.
+        shuffle_seed (int | None): Seed for shuffling. Required when `shuffle` is True, and must be
+            the same on every rank. Defaults to None. Ignored when `shuffle` is False.
         pin_memory (bool): Whether to pin CPU memory before a CUDA copy. Defaults to False.
         drop_last (bool): Whether to drop the last global batch when it is smaller than
             `local_batch_size * world_size`. Defaults to True. When False and `world_size > 1`, a
@@ -314,7 +314,8 @@ class StatefulDataLoader[SourceT: object, BatchT: object](Iterable[BatchT], Size
             num_workers (int): Number of worker threads or processes. Defaults to 0.
             parallel_method ('thread', 'process'): Parallelization strategy. Defaults to thread.
             shuffle (bool): Whether to shuffle the dataset. Defaults to False.
-            shuffle_seed (int | None): Seed for shuffling. Defaults to None.
+            shuffle_seed (int | None): Seed for shuffling. Required when `shuffle` is True.
+                Defaults to None.
             pin_memory (bool): Whether to use pinned memory for CUDA. Defaults to False.
             drop_last (bool): Whether to drop the last incomplete global batch. Defaults to True.
             prefetch (int): Number of batches to prefetch. Defaults to 0.
@@ -400,6 +401,12 @@ class StatefulDataLoader[SourceT: object, BatchT: object](Iterable[BatchT], Size
         if self.rank >= self.world_size:
             raise ValueError(
                 f"cannot have rank ({self.rank}) greater or equal to the world_size ({self.world_size})"
+            )
+
+        # Ranks do not communicate, so they only agree on a permutation through a shared seed.
+        if self.shuffle and self.shuffle_seed is None:
+            raise ValueError(
+                "shuffle_seed must be set when shuffle is enabled, to the same value on every rank"
             )
 
         if self.prefetch * self.local_batch_size < self.num_workers:
@@ -573,7 +580,7 @@ class StatefulDataLoader[SourceT: object, BatchT: object](Iterable[BatchT], Size
         if self.shuffle_seed != state_dict["shuffle_seed"]:
             warnings.warn(
                 f"Loaded shuffle_seed value ({state_dict['shuffle_seed']}) and"
-                f" initalized shuffle_seed value ({self.shuffle}) doesn't match."
+                f" initalized shuffle_seed value ({self.shuffle_seed}) doesn't match."
                 " Cannot fully restore state, likely create unexpected results.",
                 UserWarning,
                 stacklevel=1,

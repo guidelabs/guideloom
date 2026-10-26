@@ -781,6 +781,35 @@ def test_rank_greater_equal_world_size(cpu_device: torch.device) -> None:
             pass
 
 
+def test_shuffle_requires_seed(cpu_device: torch.device) -> None:
+    # Ranks do not communicate. Without a shared seed, each rank draws its own permutation, so
+    # ranks read overlapping samples and skip others.
+    dataset = MockDataset(lambda i: i**2, length=10)
+    with pytest.raises(ValueError, match="shuffle_seed must be set"):
+        with StatefulDataLoader(
+            dataset=dataset,
+            collate_fn=lambda x: x[0],
+            local_batch_size=2,
+            shuffle=True,
+            device=cpu_device,
+        ):
+            pass
+
+
+def test_load_state_dict_warns_with_both_shuffle_seeds(cpu_device: torch.device) -> None:
+    # Checkpoints from earlier releases can hold shuffle_seed=None, so this warning is common
+    # after upgrading. It should name both seeds.
+    dataset = MockDataset(lambda i: i**2, length=10)
+    dataloader = StatefulDataLoader(
+        dataset=dataset, collate_fn=lambda x: x[0], shuffle=True, shuffle_seed=7, device=cpu_device
+    )
+    state: StatefulDataLoaderStateDict = {**dataloader.state_dict(), "shuffle_seed": None}
+    with pytest.warns(
+        UserWarning, match=r"Loaded shuffle_seed value \(None\) and initalized shuffle_seed value \(7\)"
+    ):
+        dataloader.load_state_dict(state)
+
+
 def test_prefetch_less_than_num_workers_warns(cpu_device: torch.device) -> None:
     dataset = MockDataset(lambda i: i**2, length=10)
     with StatefulDataLoader(
