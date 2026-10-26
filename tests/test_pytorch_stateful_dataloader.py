@@ -99,7 +99,7 @@ class DistConfig:
         for world_size in range(1, max_world_size + 1):
             for batch_size in range(1, max_batch_size + 1):
                 if world_size * batch_size <= dataset_length:
-                    for rank in range(1, world_size):
+                    for rank in range(world_size):
                         configs.append(DistConfig(rank, world_size, batch_size))
         return configs
 
