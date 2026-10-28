@@ -866,7 +866,7 @@ def test_pack_yields_wrong_number_of_pairs_sync(
     tmp_path: pathlib.Path, num_pairs: int, stream_length: int, match: str
 ) -> None:
     # The test format sizes a record by `stream_data` and yields one pair per `document_id` entry.
-    storage = IoDef("fs-default").create(tmp_path / "pairs", stream_dtype=np.dtype(np.int64))
+    storage = StreamWithMetaStorage(tmp_path / "pairs", ConceptStorageFormat(stream_dtype=np.dtype(np.int64)))
     record: DocumentData[np.int64] = {
         "doc_id": 1,
         "document_data": [10],
