@@ -84,8 +84,7 @@ ranks can receive different samples than they would have before the change.
 
 For the same remaining sample order, preserve the dataset contents and ordering,
 storage format, dataset view and sequence length, `shuffle`, `shuffle_seed`, and
-`drop_last`. Use an explicit shuffle seed; `None` does not provide reproducible
-shuffled resumption. With `drop_last=True`, the new global batch size determines
+`drop_last`. With `drop_last=True`, the new global batch size determines
 how many samples at the end of the remaining sequence are dropped. With
 `drop_last=False`, all remaining samples are delivered, and some ranks can receive
 an empty final batch.

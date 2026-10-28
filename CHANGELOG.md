@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True` and raises `ValueError`
+  otherwise. Previously, with the default `shuffle_seed=None`, each rank drew its own
+  permutation, so ranks read overlapping samples and skipped others. Pass the same integer seed
+  on every rank.
+- The `load_state_dict` warning for a mismatched `shuffle_seed` now shows the loader's seed
+  instead of its `shuffle` flag.
+
 ## 1.1.0
 
 Improvements to the type defintions for the paths. Mostly helpful when implementing
