@@ -1,9 +1,15 @@
 # Compatibility fixtures
 
-`1.0.0` is the first supported release. Do not add a `0.1.0` directory or test
-that current code can read datasets or checkpoints produced before `1.0.0`.
+These datasets were written with `v1.0.0` using the storage formats from
+`tests/test_storage_*.py`. Paths omit the release version; keep the files
+unchanged until support ends in the next major release.
 
-After `1.0.0` is published, add a `1.0.0/` directory for layouts that later
-releases in the same major version must keep readable. Leave a published fixture
-unchanged. Add a new directory for a later release instead of regenerating an
-old one to hide a compatibility failure.
+`tests/test_compatibility.py` defines small deterministic datasets (with seeded
+NumPy RNGs for stream data). Its writer and reader tests use the same generators.
+Tests read the checked-in files without rewriting them.
+
+To write fixtures into a new directory using the installed GuideLoom version:
+
+```sh
+python -m tests.test_compatibility /tmp/compatibility-fixtures
+```
