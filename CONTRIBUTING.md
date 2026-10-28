@@ -60,8 +60,5 @@ through the Hatchling backend.
 
 ## Compatibility changes
 
-Follow [the compatibility policy](docs/compatibility.md). `1.0.0` is the
-first supported release; do not add a compatibility fixture for `0.1.0`. After
-`1.0.0` is published, keep historical fixtures in `tests/fixtures/compatibility/`
-unchanged. Add fixtures for new releases rather than regenerating older ones to
-make a test pass. Explain public behavior changes and migrations in `CHANGELOG.md`.
+Follow [the compatibility policy](docs/compatibility.md).
+Explain public behavior changes and migrations in `CHANGELOG.md`.
