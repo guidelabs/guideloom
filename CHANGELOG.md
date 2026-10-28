@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+<<<<<<< HEAD
 - `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True` and raises `ValueError`
   otherwise. Previously, with the default `shuffle_seed=None`, each rank drew its own
   permutation, so ranks read overlapping samples and skipped others. Pass the same integer seed
   on every rank.
 - The `load_state_dict` warning for a mismatched `shuffle_seed` now shows the loader's seed
   instead of its `shuffle` flag.
+=======
+- `StatefulDataLoader` moves batches containing namedtuples to a non-CPU device. Previously this
+  raised `TypeError`, or, for a namedtuple whose other fields have defaults, put a generator in its
+  first field instead of the moved tensor.
+>>>>>>> 80bbf53 (fix: move namedtuple batches to the device)
 
 ## 1.1.0
 
