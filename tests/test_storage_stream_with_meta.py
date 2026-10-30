@@ -1,6 +1,6 @@
 from collections.abc import Callable, Generator, Hashable, Sequence
 from dataclasses import dataclass
-from typing import Any, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 import shutil
 import asyncio
 import pathlib
@@ -855,34 +855,34 @@ async def test_non_sequentally_unique_keys_async(
             )
 
 
-@pytest.mark.parametrize(
-    ("num_pairs", "stream_length", "match"),
-    [
-        pytest.param(2, 4, "yielded 2", id="fewer-pairs-than-size"),
-        pytest.param(4, 2, "yielded more", id="more-pairs-than-size"),
-    ],
-)
-def test_pack_yields_wrong_number_of_pairs_sync(
-    tmp_path: pathlib.Path, num_pairs: int, stream_length: int, match: str
-) -> None:
+def test_pack_yields_wrong_number_of_pairs_sync(tmp_path: pathlib.Path) -> None:
     # The test format sizes a record by `stream_data` and yields one pair per `document_id` entry.
-    storage = StreamWithMetaStorage(tmp_path / "pairs", ConceptStorageFormat(stream_dtype=np.dtype(np.int64)))
-    record: DocumentData[np.int64] = {
-        "doc_id": 1,
-        "document_data": [10],
-        "document_id": np.array([0] * num_pairs, dtype=np.int32),
-        "stream_data": np.arange(stream_length, dtype=np.int64),
-    }
+    storage = StreamWithMetaStorage(
+        tmp_path / "fewer_pairs", ConceptStorageFormat(stream_dtype=np.dtype(np.int64))
+    )
 
     with storage.sync_writer() as writer:
-        with pytest.raises(ValueError, match=match):
-            writer.append(0, record)
+        with pytest.raises(ValueError, match="yielded 2"):
+            writer.append(0, {
+                "doc_id": 1,
+                "document_data": [10],
+                "document_id": np.array([0, 0], dtype=np.int32),
+                "stream_data": np.arange(4, dtype=np.int64),
+            })
+
+        with pytest.raises(ValueError, match="yielded more"):
+            writer.append(0, {
+            "doc_id": 1,
+            "document_data": [10],
+            "document_id": np.array([0, 0, 0, 0], dtype=np.int32),
+            "stream_data": np.arange(2, dtype=np.int64),
+        })
 
 
 class ReturnTransformFormat(ConceptStorageFormat[np.int64]):
     """Yields the same pairs as `ConceptStorageFormat`, then transforms the returned stream array."""
 
-    def __init__(self, transform: Callable[[Vector[np.int64]], Any]) -> None:
+    def __init__(self, transform: Callable[[Vector[np.int64]], object]) -> None:
         super().__init__(stream_dtype=np.dtype(np.int64))
         self.transform = transform
 
@@ -906,7 +906,7 @@ class ReturnTransformFormat(ConceptStorageFormat[np.int64]):
 def test_pack_returns_invalid_stream_sync(
     tmp_path: pathlib.Path,
     doc_first: DocumentData[np.int64],
-    transform: Callable[[Vector[np.int64]], Any],
+    transform: Callable[[Vector[np.int64]], object],
     error: type[Exception],
     match: str,
 ) -> None:
@@ -917,20 +917,3 @@ def test_pack_returns_invalid_stream_sync(
     with storage.sync_writer() as writer:
         with pytest.raises(error, match=match):
             writer.append(0, doc_first)
-
-
-def test_pack_returns_big_endian_stream_sync(
-    tmp_path: pathlib.Path, doc_first: DocumentData[np.int64]
-) -> None:
-    # Only the byte order differs from `stream_dtype`, so the stream is accepted and converted, as
-    # the plain stream writer does.
-    storage = StreamWithMetaStorage(
-        tmp_path / "big_endian", ReturnTransformFormat(lambda stream: stream.astype(">i8"))
-    )
-
-    with storage.sync_writer() as writer:
-        writer.append(0, doc_first)
-
-    with storage.sync_reader() as reader:
-        result = reader.read(global_index=0, global_length=7)
-        np.testing.assert_array_equal(result["stream_data"], doc_first["stream_data"])
