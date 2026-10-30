@@ -1,24 +1,16 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
-- Add Python 3.15 support.
-- `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True` and raises `ValueError`
-  otherwise. Previously, with the default `shuffle_seed=None`, each rank drew its own
-  permutation, so ranks read overlapping samples and skipped others. Pass the same integer seed
+This patch update adds input validation to the dataloader and writer, and fixes
+the missing support for namedtuples. It also adds Python 3.15 support.
+
+- Python 3.15 support. This is a pure-python package, but PyTorch was preventing 3.15 support. The most recent vesion PyTorch now supports 3.15 and we have also removed the upper bound on the python version.
+- `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True`. Pass the same integer seed
   on every rank.
-- The `load_state_dict` warning for a mismatched `shuffle_seed` now shows the loader's seed
-  instead of its `shuffle` flag.
-- `StatefulDataLoader` moves batches containing namedtuples to a non-CPU device. Previously this
-  raised `TypeError`, or, for a namedtuple whose other fields have defaults, put a generator in its
-  first field instead of the moved tensor.
-- `StreamWithMetaStorage` writers check what `pack` produces, as the plain stream writer already
-  does. They raise `ValueError` when `pack` yields a different number of pairs than `size(data)`,
-  or returns an array without `size(data)` elements or with a dtype other than `stream_dtype`
-  (byte order may differ), and `TypeError` when it returns something that is not a NumPy array,
-  such as `None` from a missing `return`. Previously, too few pairs wrote uninitialized metadata
-  indexes, and other return values were silently cast or broadcast. Return
-  `np.asarray(stream, dtype=self.stream_dtype)` from `pack` if needed.
+- The `load_state_dict` warning for a mismatched `shuffle_seed` now shows the loader's seed.
+- `StatefulDataLoader` moves batches containing namedtuples to a non-CPU device.
+- `StreamWithMetaStorage` writers improves check what `pack` produces. The following checks were added: different number of yielded pairs than `size(data)`, ing an array without `size(data)` elements, a dtype other than `stream_dtype` (byte order may differ), and when it returns something that is not a NumPy array.
 
 ## 1.1.0
 
