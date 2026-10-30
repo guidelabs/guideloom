@@ -27,7 +27,7 @@ See [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) and
    and document migrations when crossing a breaking boundary.
 3. Update `CHANGELOG.md`, replacing the unreleased label with the release date.
    Verify the quick-start and any changed guide examples.
-4. Run the checks in `CONTRIBUTING.md`. CI covers Python 3.13 and 3.14 and
+4. Run the checks in `CONTRIBUTING.md`. CI covers Python 3.13, 3.14, and 3.15 and
    minimum dependencies.
 
 Build into an empty output directory to avoid accidentally uploading older files:
@@ -45,7 +45,7 @@ package version, runs lint, type checking, and documentation checks, and builds
 the archives once. It uploads those archives to TestPyPI, then each test job
 creates an environment with uv and installs that exact package version directly
 from TestPyPI. The test suite runs against the installed wheel for each matrix
-entry: Python 3.13 and 3.14 with latest dependencies, and Python 3.13 with
+entry: Python 3.13, 3.14, and 3.15 with latest dependencies, and Python 3.13 with
 minimum direct dependencies, including the Torch extra and test tools. Each job
 installs the TestPyPI wheel and its dependencies in one uv command. Dependencies
 come from PyPI; their requirements and minimum versions come from `pyproject.toml`.

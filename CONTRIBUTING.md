@@ -1,6 +1,6 @@
 # Contributing
 
-Use Python 3.13 or 3.14, Node.js 24, and
+Use Python 3.13, 3.14, or 3.15, Node.js 24, and
 [uv](https://docs.astral.sh/uv/getting-started/installation/).
 Create an isolated environment and install development dependencies:
 

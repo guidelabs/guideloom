@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add Python 3.15 support.
 - `StatefulDataLoader` requires `shuffle_seed` when `shuffle=True` and raises `ValueError`
   otherwise. Previously, with the default `shuffle_seed=None`, each rank drew its own
   permutation, so ranks read overlapping samples and skipped others. Pass the same integer seed
