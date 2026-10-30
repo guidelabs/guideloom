@@ -1,6 +1,6 @@
 # Quick-start
 
-Use Python 3.13 or 3.14 and install GuideLoom with PyTorch support:
+Use Python 3.13, 3.14, or 3.15 and install GuideLoom with PyTorch support:
 
 ```sh
 uv venv --python 3.13
