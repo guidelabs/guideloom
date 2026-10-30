@@ -863,20 +863,26 @@ def test_pack_yields_wrong_number_of_pairs_sync(tmp_path: pathlib.Path) -> None:
 
     with storage.sync_writer() as writer:
         with pytest.raises(ValueError, match="yielded 2"):
-            writer.append(0, {
-                "doc_id": 1,
-                "document_data": [10],
-                "document_id": np.array([0, 0], dtype=np.int32),
-                "stream_data": np.arange(4, dtype=np.int64),
-            })
+            writer.append(
+                0,
+                {
+                    "doc_id": 1,
+                    "document_data": [10],
+                    "document_id": np.array([0, 0], dtype=np.int32),
+                    "stream_data": np.arange(4, dtype=np.int64),
+                },
+            )
 
         with pytest.raises(ValueError, match="yielded more"):
-            writer.append(0, {
-            "doc_id": 1,
-            "document_data": [10],
-            "document_id": np.array([0, 0, 0, 0], dtype=np.int32),
-            "stream_data": np.arange(2, dtype=np.int64),
-        })
+            writer.append(
+                0,
+                {
+                    "doc_id": 1,
+                    "document_data": [10],
+                    "document_id": np.array([0, 0, 0, 0], dtype=np.int32),
+                    "stream_data": np.arange(2, dtype=np.int64),
+                },
+            )
 
 
 class ReturnTransformFormat(ConceptStorageFormat[np.int64]):
@@ -890,7 +896,7 @@ class ReturnTransformFormat(ConceptStorageFormat[np.int64]):
         self, data: DocumentData[np.int64]
     ) -> Generator[tuple[Hashable, UserBufferTypes | None], None, Vector[np.int64]]:
         stream_data = yield from super().pack(data)
-        return self.transform(stream_data)
+        return self.transform(stream_data)  # pyright: ignore[reportReturnType] -- intentional error
 
 
 @pytest.mark.parametrize(
