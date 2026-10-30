@@ -1,4 +1,4 @@
-from collections.abc import Generator, Hashable, Sequence
+from collections.abc import Callable, Generator, Hashable, Sequence
 from dataclasses import dataclass
 from typing import NotRequired, TypedDict
 import shutil
@@ -853,3 +853,73 @@ async def test_non_sequentally_unique_keys_async(
                     "stream_data": np.array([10, 20, 30, 40, 50, 60, 70], dtype=np.int64),
                 },
             )
+
+
+def test_pack_yields_wrong_number_of_pairs_sync(tmp_path: pathlib.Path) -> None:
+    # The test format sizes a record by `stream_data` and yields one pair per `document_id` entry.
+    storage = StreamWithMetaStorage(
+        tmp_path / "fewer_pairs", ConceptStorageFormat(stream_dtype=np.dtype(np.int64))
+    )
+
+    with storage.sync_writer() as writer:
+        with pytest.raises(ValueError, match="yielded 2"):
+            writer.append(
+                0,
+                {
+                    "doc_id": 1,
+                    "document_data": [10],
+                    "document_id": np.array([0, 0], dtype=np.int32),
+                    "stream_data": np.arange(4, dtype=np.int64),
+                },
+            )
+
+        with pytest.raises(ValueError, match="yielded more"):
+            writer.append(
+                0,
+                {
+                    "doc_id": 1,
+                    "document_data": [10],
+                    "document_id": np.array([0, 0, 0, 0], dtype=np.int32),
+                    "stream_data": np.arange(2, dtype=np.int64),
+                },
+            )
+
+
+class ReturnTransformFormat(ConceptStorageFormat[np.int64]):
+    """Yields the same pairs as `ConceptStorageFormat`, then transforms the returned stream array."""
+
+    def __init__(self, transform: Callable[[Vector[np.int64]], object]) -> None:
+        super().__init__(stream_dtype=np.dtype(np.int64))
+        self.transform = transform
+
+    def pack(
+        self, data: DocumentData[np.int64]
+    ) -> Generator[tuple[Hashable, UserBufferTypes | None], None, Vector[np.int64]]:
+        stream_data = yield from super().pack(data)
+        return self.transform(stream_data)  # pyright: ignore[reportReturnType] -- intentional error
+
+
+@pytest.mark.parametrize(
+    ("transform", "error", "match"),
+    [
+        pytest.param(lambda stream: None, TypeError, "got NoneType", id="missing-return"),
+        pytest.param(lambda stream: stream[:1], ValueError, "got shape", id="wrong-shape"),
+        pytest.param(
+            lambda stream: stream.astype(np.int32), ValueError, "returned dtype int32", id="wrong-dtype"
+        ),
+    ],
+)
+def test_pack_returns_invalid_stream_sync(
+    tmp_path: pathlib.Path,
+    doc_first: DocumentData[np.int64],
+    transform: Callable[[Vector[np.int64]], object],
+    error: type[Exception],
+    match: str,
+) -> None:
+    # Previously, a missing `return` failed as "not fully consumed", a length-1 array was broadcast
+    # to every stream element, and another dtype was silently cast.
+    storage = StreamWithMetaStorage(tmp_path / "invalid", ReturnTransformFormat(transform))
+
+    with storage.sync_writer() as writer:
+        with pytest.raises(error, match=match):
+            writer.append(0, doc_first)
