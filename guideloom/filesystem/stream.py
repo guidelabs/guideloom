@@ -184,6 +184,7 @@ class _FileSystemStreamAsyncReader[DType: np.generic](AsyncContextManager):
         self._row_bytes = self.dtype.itemsize
         self._make_reader = read_interface.async_reader()
         self._reader: dict[int, IOAsyncReaderAbstract] = {}
+        self._open_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def open(self) -> None:
         pass
@@ -191,14 +192,20 @@ class _FileSystemStreamAsyncReader[DType: np.generic](AsyncContextManager):
     async def close(self) -> None:
         await asyncio.gather(*(reader.close() for reader in self._reader.values()))
         self._reader.clear()
+        self._open_locks.clear()
 
     async def _get_reader(self, shard: int) -> IOAsyncReaderAbstract:
-        reader = self._reader.get(shard, None)
-        if reader is None:
-            reader = self._make_reader(self.path / _shard_to_filename(shard))
-            await reader.open()
-            self._reader[shard] = reader
-        return reader
+        reader = self._reader.get(shard)
+        if reader is not None:
+            return reader
+
+        async with self._open_locks[shard]:
+            reader = self._reader.get(shard)
+            if reader is None:
+                reader = self._make_reader(self.path / _shard_to_filename(shard))
+                await reader.open()
+                self._reader[shard] = reader
+            return reader
 
     async def num_shards(self) -> int:
         return await num_shards_async(self._get_reader)

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Concurrent async reads now reuse one reader per shard. Different shards can still open in parallel.
+
 ## 1.2.0
 
 This patch update adds input validation to the dataloader and writer, and fixes
