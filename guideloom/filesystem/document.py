@@ -253,6 +253,7 @@ class _FileSystemDocumentAsyncReader(AsyncContextManager):
         self.index_dtype_bytes = self.index_dtype.itemsize
         self._make_reader = read_interface.async_reader()
         self._reader: dict[int, IndexDataReader[IOAsyncReaderAbstract]] = {}
+        self._open_locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def open(self) -> None:
         pass
@@ -262,19 +263,24 @@ class _FileSystemDocumentAsyncReader(AsyncContextManager):
             *(reader.index.close() for reader in self._reader.values()),
             *(reader.data.close() for reader in self._reader.values()),
         )
+        self._open_locks.clear()
 
     async def _get_reader(self, shard: int) -> IndexDataReader[IOAsyncReaderAbstract]:
-        reader = self._reader.get(shard, None)
-        if reader is None:
-            reader = IndexDataReader(
-                index=self._make_reader(self.path / _shard_to_index_filename(shard)),
-                data=self._make_reader(self.path / _shard_to_data_filename(shard)),
-                shard=shard,
-            )
-            await asyncio.gather(reader.data.open(), reader.index.open())
-            self._reader[shard] = reader
+        reader = self._reader.get(shard)
+        if reader is not None:
+            return reader
 
-        return reader
+        async with self._open_locks[shard]:
+            reader = self._reader.get(shard)
+            if reader is None:
+                reader = IndexDataReader(
+                    index=self._make_reader(self.path / _shard_to_index_filename(shard)),
+                    data=self._make_reader(self.path / _shard_to_data_filename(shard)),
+                    shard=shard,
+                )
+                await asyncio.gather(reader.data.open(), reader.index.open())
+                self._reader[shard] = reader
+            return reader
 
     async def num_shards(self) -> int:
         return await num_shards_async(self._get_reader)
